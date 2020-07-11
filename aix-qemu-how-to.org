@@ -1,0 +1,93 @@
+ #+TITLE: QEMU - AIX on x86 （详解版）
+#+AUTHOR: GongCun
+
+AIX 操作系统是 IBM 开发的闭源 UNIX 操作系统，基于 [[https://en.wikipedia.org/wiki/UNIX_System_V][UNIX System V]] 和 [[https://en.wikipedia.org/wiki/History_of_the_Berkeley_Software_Distribution#4.3BSD][4.3BSD]] 兼容性
+扩展，随着 [[https://en.wikipedia.org/wiki/Solaris_(operating_system)][Solaris]] 的凋零，AIX 可能是目前硕果仅存的商业 UNIX 操作系统（不算maxOS
+X的话）。AIX 是曾经的 UNIX 王者，它是第一个具备日志文件系统的 OS，并且移植了来自
+于 mainframe 可靠性工程设计，在虚拟化上也有独到之处。虽然开放的 Linux 系统取代封
+闭的商业 Unix 系统只是时间问题，但是不可否则，AIX、Solaris 等商业 Unix 系统，曾
+经拥有最优秀的技术和工程实践，而 Linux 也是吸收了这些养分才慢慢壮大起来。
+
+在 AIX 4.3.3 年代（90年代中后期），当时的苹果电脑还是使用 PowerPC CPU 的
+Macintosh系列，是可以安装并运行 AIX 操作系统的，据说当时的 QEMU 已经可以支持模拟
+POWER 芯片并运行 AIX 4.3.3 系统。随着 2003 年最后一代 Power Mac G5 推出，采用
+POWER 芯片的个人电脑已经越来越少，QEMU 对 AIX 的支持也逐渐下降，使得很长一段时间
+以来，AIX不能在广泛使用的 x86 平台上安装甚至模拟，导致了个人用户或玩家很难熟悉
+AIX 系统，也阻碍了其市场培育和发展。很难说这种闭源的决策是好是坏，毕竟另一款优秀
+的商业 Unix 操作系统 Solaris 很早就并行支持 x86 和 SPARC 架构，甚至在 2005
+年就开放了原始码，但并没有挽救其凋零的命运。
+
+最近在玩阿里云的过程中，逐渐接触到基于内核的虚拟机 KVM、XEN/VirtIO 半虚拟化等技
+术（中间还和阿里的工程师有很多次有意思的交流），发现随着 [[https://zh.wikipedia.org/wiki/QEMU][QEMU]] 的不断发展，不仅支
+持仿真 PowerPC，并且有人已经成功地在 QEMU 中运行了最新的 AIX 7.2 操作系统，这太
+酷了，我忍不住也尝试一次。
+
+这篇文章主要参考[[http://aix4admins.blogspot.com/2020/04/qemu-aix-on-x86-qemu-quick-emulator-is.html][这里]]，但是增加了一些更加具体的内容，包括如何将一个真实运行的 AIX
+系统迁移到 x86 上，而不是单纯安装一个新系统，虽然现在我可以在这里风轻云淡地娓娓
+道来，但是其中的难度和对耐心的考验是不可想象的。
+
+* What is QEMU
+
+QEMU（quick emulator）是由传奇程序员 Fabrice Bellard 等人编写的可执行硬件虚拟化
+的 hypervisor，具有跨平台的特性。由于 QEMU 的架构由纯软件实现，并在 Guest 与Host
+中间处理 Guest 的硬件请求，并将其转译给真正的硬件。由于所有的指令都要经过 QEMU，
+使得性能很差，而通过 KVM（Kernel-based Virtual Machine）可以实现加速：QEMU 负责
+处理 KVM 镜像的设置与迁移，并参加硬件的仿真，但是 Guest 的执行则由 KVM 完成。
+Nutanix Acropolis Hypervisor（AHV）通过 QEMU/KVM 技术以及和 IBM AIX 兼容性适配，
+在 2018 年已经实现了支持运行 AIX 7.2 TL 2 及以上版本的虚拟化。
+
+* Prepare AIX mksysb
+一开始我就考虑要将现有的 AIX 系统迁移到个人电脑上运行，因此需要做的第一件事就是
+备份，但看似最简单的步骤却花了最多时间，原因见后。首先，由于要修改备份数据的
+meta-data，因此需要分几步来备份：
+
+1. 生成备份 meta-data（image.data）
+  #+begin_example
+    # mkszfile -G -X -d /tmp
+    -G: Excludes the WPAR file systems from the /image.data file.
+    -X: Expands /tmp if needed.
+    -d: Write the image.data file to the specified directory instead of /.
+
+  #+end_example
+  生成的文件路径位于 */tmp/image.data* ，修改其中的以下片段：
+  #+begin_example
+    vg_data:
+            VGNAME= rootvg
+            PPSIZE= 128 <--- 建议大于 64MB
+            ...
+  #+end_example
+  
+   QEMU 虽然在模拟 virtual SCSI 设备，但是最终是要将数据块从 Guest 内核传递到真实
+   设备去的，因此也就受限于真实设备的块限制。在多次从备份恢复失败之后，我才意识
+   到这点，但是究竟调整哪些参数可以绕过这种限制，在网上可以参考的资料寥寥无几。
+   仔细阅读[[https://developer.ibm.com/articles/enhancing-qemu-virtio-scsi-with-block-limits-vpd-emulation/][这篇文章]]之后，我收到启发，尝试修改 rootvg 的 PPSIZE（将 64MB 改为
+   128MB），最终成功地恢复了备份（这个步骤大概花费我一个星期的时间）。另外，原系
+   统的某些 JFS/JFS2 文件系统的日志是 INLINE 类型，由于 QEMU 的限制，在系统启动
+   时做 fsck 或 replay log 时会 hang 住，需要将其改为 OUTLINE 类型（如指定日志逻
+   辑卷为 /dev/loglv00）。
+
+2. 执行备份
+
+   执行备份前最好将一些乱七八糟的进程关闭（包括 crontab 的排程），以免出现数据不
+   完整的情况。另外需要将一些无需备份的文件或目录写在 */etc/exclude.rootvg* 下。
+
+   #+BEGIN_EXAMPLE
+     # cp /tmp/image.data /image.data
+
+     # cat /etc/exclude.rootvg
+     ^./tmp/
+
+     # audit shutdown && \
+       ps -ef | grep [r]sync | awk '{system("kill "$2)}' && \
+       mksysb -e /export/mksysb/os.mksysb
+   #+END_EXAMPLE
+
+3. 将 mksysb 文件转换为 iso 格式
+
+   #+BEGIN_EXAMPLE
+     mkdir -p /export/mksysb/os-cdrom && \
+     mkdvd -R -S -I /export/mksysb/os-cdrom -m /export/mksysb/os.mksysb
+
+   #+END_EXAMPLE
+
+* Install QEMU
