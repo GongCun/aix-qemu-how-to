@@ -1,0 +1,859 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2020-07-13 周一 07:50 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QEMU - AIX on x86 （详解版）</title>
+<meta name="generator" content="Org mode" />
+<meta name="author" content="GongCun" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2018 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">QEMU - AIX on x86 （详解版）</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org1b55fbd">1. What is QEMU</a></li>
+<li><a href="#org59a93ea">2. Prepare AIX mksysb</a></li>
+<li><a href="#org41c8ecd">3. Install QEMU</a></li>
+<li><a href="#org832626c">4. Create a disk file</a></li>
+<li><a href="#orgd35ed51">5. Create an AIX VM</a></li>
+<li><a href="#orgcaa64ed">6. Fix issue in Maintenance mode</a></li>
+<li><a href="#org4de5e94">7. Network setup</a></li>
+<li><a href="#org2304165">8. Restore the datavg</a></li>
+<li><a href="#orgab6b382">9. Start Apache</a></li>
+<li><a href="#org807f2c9">10. Miscellaneous</a></li>
+</ul>
+</div>
+</div>
+<p>
+AIX 操作系统是 IBM 开发的闭源 UNIX 操作系统，基于 <a href="https://en.wikipedia.org/wiki/UNIX_System_V">UNIX System V</a> 和 <a href="https://en.wikipedia.org/wiki/History_of_the_Berkeley_Software_Distribution#4.3BSD">4.3BSD</a> 兼容性
+扩展，随着 <a href="https://en.wikipedia.org/wiki/Solaris_(operating_system)">Solaris</a> 的凋零，AIX 可能是目前硕果仅存的商业 UNIX 操作系统（不算maxOS
+X的话）。AIX 是曾经的 UNIX 王者，它是第一个具备日志文件系统的 OS，并且移植了来自
+于大机（mainframe）的可靠性工程设计，在虚拟化上也有独到之处。虽然开放的 Linux 系统取代封
+闭的商业 Unix 系统只是时间问题，但是不可否则，AIX、Solaris 等商业 Unix 系统，曾
+经拥有最优秀的技术和工程实践，而 Linux 也是吸收了这些养分才慢慢壮大起来。
+</p>
+
+<p>
+在 AIX 4.3.3 年代（90年代中后期），当时的苹果电脑还是使用 PowerPC CPU 的
+Macintosh系列，是可以安装并运行 AIX 操作系统的，据说当时的 QEMU 已经可以支持模拟
+POWER 芯片并运行 AIX 4.3.3 系统。随着 2003 年最后一代 Power Mac G5 推出，采用
+POWER 芯片的个人电脑已经越来越少，QEMU 对 AIX 的支持也逐渐下降，使得很长一段时间
+以来，AIX不能在广泛使用的 x86 平台上安装甚至模拟，导致了个人用户或玩家很难熟悉
+AIX 系统，也阻碍了其市场培育和发展。很难说这种闭源的决策是好是坏，毕竟另一款优秀
+的商业 Unix 操作系统 Solaris 很早就并行支持 x86 和 SPARC 架构，甚至在 2005
+年就开放了原始码，但并没有挽救其凋零的命运。
+</p>
+
+<p>
+最近在玩阿里云的过程中，逐渐接触到基于内核的虚拟机 KVM、XEN/VirtIO 半虚拟化等技
+术（中间还和阿里的工程师有很多次有意思的交流），发现随着 <a href="https://zh.wikipedia.org/wiki/QEMU">QEMU</a> 的不断发展和 AIX 对
+虚拟化的逐渐支持，已经可以在 QEMU 中运行 AIX 7.2 操作系统，因此我决定也做一次尝试。
+</p>
+
+<p>
+将 AIX 移植到 x86 上运行的过程主要参考<a href="http://aix4admins.blogspot.com/2020/04/qemu-aix-on-x86-qemu-quick-emulator-is.html">这里</a>，但是增加了一些更加具体的内容，包括如
+何将一个真实运行的 AIX系统迁移到 x86 上，而不是单纯安装一个新系统，虽然现在我可
+以在这里风轻云淡地娓娓道来，但是其中的难度和对耐心的考验是不可想象的。
+</p>
+
+<div id="outline-container-org1b55fbd" class="outline-2">
+<h2 id="org1b55fbd"><span class="section-number-2">1</span> What is QEMU</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+QEMU（quick emulator）是由传奇程序员 Fabrice Bellard 等人编写的可执行硬件虚拟化
+的 hypervisor，具有跨平台的特性。由于 QEMU 的架构由纯软件实现，并在 Guest 与Host
+中间处理 Guest 的硬件请求，并将其转译给真正的硬件。由于所有的指令都要经过 QEMU，
+使得性能很差，而通过 KVM（Kernel-based Virtual Machine）可以实现加速：QEMU 负责
+处理 KVM 镜像的设置与迁移，并参加硬件的仿真，但是 Guest 的执行则由 KVM 完成。
+Nutanix Acropolis Hypervisor（AHV）通过 QEMU/KVM 技术以及和 IBM AIX 兼容性适配，
+在 2018 年已经实现了支持运行 AIX 7.2 TL 2 及以上版本的虚拟化。
+</p>
+</div>
+</div>
+
+<div id="outline-container-org59a93ea" class="outline-2">
+<h2 id="org59a93ea"><span class="section-number-2">2</span> Prepare AIX mksysb</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+一开始我就考虑要将现有的 AIX 系统迁移到个人电脑上运行，因此需要做的第一件事就是
+备份，但看似最简单的步骤却花了最多时间，原因见后。首先，由于要修改备份数据的
+meta-data，因此需要分几步来备份：
+</p>
+
+<ol class="org-ol">
+<li><p>
+生成备份 meta-data（image.data）
+</p>
+<pre class="example">
+# mkszfile -G -X -d /tmp
+-G: Excludes the WPAR file systems from the /image.data file.
+-X: Expands /tmp if needed.
+-d: Write the image.data file to the specified directory instead of /.
+
+</pre>
+<p>
+生成的文件路径位于 <b>/tmp/image.data</b> ，修改其中的以下片段：
+</p>
+<pre class="example">
+vg_data:
+        VGNAME= rootvg
+        PPSIZE= 128 &lt;--- 建议大于 64MB
+        ...
+</pre>
+
+<p>
+QEMU 虽然在模拟 virtual SCSI 设备，但是最终是要将数据块从 Guest 内核传递到真实
+设备去的，因此也就受限于真实设备的块限制。在多次从备份恢复失败之后，我才意识
+到这点，但是究竟调整哪些参数可以绕过这种限制，在网上可以参考的资料寥寥无几。
+仔细阅读<a href="https://developer.ibm.com/articles/enhancing-qemu-virtio-scsi-with-block-limits-vpd-emulation/">这篇文章</a>之后，我收到启发，尝试修改 rootvg 的 PPSIZE（将 64MB 改为
+128MB），最终成功地恢复了备份（这个步骤大概花费我一个星期的时间）。另外，原系
+统的某些 JFS/JFS2 文件系统的日志是 INLINE 类型，由于 QEMU 的限制，在系统启动
+时做 fsck 或 replay log 时会 hang 住，需要将其改为 OUTLINE 类型（如指定日志逻
+辑卷为 /dev/loglv00）。
+</p></li>
+
+<li><p>
+执行备份
+</p>
+
+<p>
+执行备份前最好将一些乱七八糟的进程关闭（包括 crontab 的排程），以免出现数据不
+完整的情况。另外需要将一些无需备份的文件或目录写在 <b>/etc/exclude.rootvg</b> 下。
+</p>
+
+<pre class="example">
+# cp /tmp/image.data /image.data
+
+# cat /etc/exclude.rootvg
+^./tmp/
+
+# audit shutdown &amp;&amp; \
+  ps -ef | grep [r]sync | awk '{system("kill "$2)}' &amp;&amp; \
+  mksysb -e /export/mksysb/os.mksysb
+</pre></li>
+
+<li><p>
+将 mksysb 文件转换为 iso 格式
+</p>
+
+<pre class="example">
+mkdir -p /export/mksysb/os-cdrom &amp;&amp; \
+mkdvd -R -S -I /export/mksysb/os-cdrom -m /export/mksysb/os.mksysb
+
+</pre></li>
+</ol>
+</div>
+</div>
+
+<div id="outline-container-org41c8ecd" class="outline-2">
+<h2 id="org41c8ecd"><span class="section-number-2">3</span> Install QEMU</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+虽然我的 Windows 上也安装了 Qemu，但是由于大部分模拟 AIX 成功的先例都是在
+Linux/MacOS 上模拟成功，我选择先在 VirtuaBox 上安装 CentOS 8 虚拟机，然后再在
+CentOS 上安装 Qemu 虚拟机（性能特别是 I/O 上确实有些影响）。安装 QEMU 之前，需要
+先安装 gcc、make、python 之类的常用开发套件：
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sudo dnf install python3 -y
+sudo alternatives --set python /usr/bin/python3
+sudo dnf install glib* -y
+sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo dnf install perl gcc dkms kernel-devel kernel-headers make bzip2 -y
+</pre>
+</div>
+
+<p>
+接着从 github 上下载最新的 QEMU，并编译安装，注意，最好修改 configure 参数，不要
+做任何优化编译，否则之后在 Guest 运行 ppc64 指令时，会出现高地址寻址错误，引发
+sigfault：
+<a id="org2d0a22c"></a>
+</p>
+<pre class="example">
+# git clone git://git.qemu.org/qemu.git
+# cd qemu
+# mkdir build; cd build
+# ../configure CFLAGS='-O0'
+# make
+# make install
+# qemu-system-ppc64 --version
+QEMU emulator version 5.0.50 (v5.0.0-1681-g63d211993b)
+Copyright (c) 2003-2020 Fabrice Bellard and the QEMU Project developers
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org832626c" class="outline-2">
+<h2 id="org832626c"><span class="section-number-2">4</span> Create a disk file</h2>
+<div class="outline-text-2" id="text-4">
+<p>
+创建 AIX rootvg 硬盘（disk file），大小可以按照 rootvg 的实际大小创建，可以在
+AIX 上运行如下命令得到 size：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">df -tk <span style="color: #fa8072;">`lsvgfs rootvg`</span> | awk <span style="color: #a9dc69;">'</span>
+<span style="color: #a9dc69;">{total+=$3} END {printf "Estimated size: %d bytes, %.2f GB\n", total*1024, total/1024/1024}'</span>
+</pre>
+</div>
+
+<p>
+接着我们在 CentOS 上创建 disk 文件：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">mkdir -p /aix &amp;&amp; <span style="color: #a9dc69;">\</span>
+    <span style="color: #f9b529;">cd</span> /aix &amp;&amp; <span style="color: #a9dc69;">\</span>
+    qemu-img create -f qcow2 rootvg.qcow2 <span style="color: #228b22; font-weight: bold; font-style: italic;">120G</span>
+</pre>
+</div>
+
+<p>
+由于是 thin-provision，因此这步的操作是立即返回的，初始文件大小只有 8MB 左右。但
+是有一点要注意，就是确保 CentOS 上有足够的空间扩展，必要时先在 VirtualBox 上扩展
+虚拟磁盘，然后在 CentOS 上扩充文件系统：
+</p>
+<pre class="example">
+fdisk -l
+fdisk /dev/sda
+  n -&gt; p -&gt; 3 -&gt; default value -&gt; w
+reboot
+vgs
+vgextend cl_centos8 /dev/sda4
+lvextend /dev/mapper/cl_centos8-root /dev/sda4
+xfs_growfs /
+</pre>
+</div>
+</div>
+
+<div id="outline-container-orgd35ed51" class="outline-2">
+<h2 id="orgd35ed51"><span class="section-number-2">5</span> Create an AIX VM</h2>
+<div class="outline-text-2" id="text-5">
+<pre class="example">
+# cd /aix
+# qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 \
+  -serial mon:stdio -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+  -device virtio-scsi-pci,id=scsi -device scsi-hd,drive=drive-virtio-disk0 \
+  -cdrom /dev/cdrom -prom-env boot-command='boot cdrom:'
+
+# Parameters used:
+# -cpu: processor type, here POWER8
+# -machine: machine type, here pseries
+# -m: memory size, here 2GB
+# -serial: redirects serial output to specified device, &lt;ctrl-c&gt; will send to qenu vm
+# -drive: the disk file we created before
+# -device: virtio-scsi-pci (not fully sure, but maybe this will create a virt. eth. adapter device)
+# -device: scs-hd (probably this will create hdisk device)
+# -cdrom: for multiple .iso files, specify the /dev/cdrom
+# -prom-env: sets NVRAM variable for PPC and SPARC servers, here a boot-command is used, which points to cdrom (DVD)
+</pre>
+
+<p>
+注意，由于 <b>mkdvd</b> 生成的是多个 .iso 文件，因此 <b>-cdrom</b> 需要指定 /dev/cdrom 便
+于插拔虚拟光驱。
+</p>
+
+<p>
+启动并恢复备份的的过程非常慢，15GB 左右的备份文件分成了4个 iso 档，每个 iso 文件
+恢复的时间约 1.5~2 小时，总共花费约 8 个小时才完成恢复。我前后大约做了 6 次尝试，
+前5次都是在恢复到第3个 iso 文件时报错，最后调整了 PPSIZE 参数才恢复成功。
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgcaa64ed" class="outline-2">
+<h2 id="orgcaa64ed"><span class="section-number-2">6</span> Fix issue in Maintenance mode</h2>
+<div class="outline-text-2" id="text-6">
+<p>
+当最后一个 iso 文件恢复完成时，在 VirtualBox 中重新选择虚拟盘（第一个 iso 文件），
+然后 boot 进入维护模式（Maintenance mode）：
+<a id="org16c46e9"></a>
+</p>
+<pre class="example">
+# qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 \
+  -serial mon:stdio -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+  -device virtio-scsi-pci,id=scsi -device scsi-hd,drive=drive-virtio-disk0 \
+  -cdrom /dev/cdrom -prom-env boot-command='boot cdrom:'
+
+## choose 3 (Start Maintenance Mode) --&gt; 1 (Access a Root VG) --&gt; 0 Continue
+## --&gt; 1 (VG on hdisk0) --&gt; 1 (Access this VG and start a shell).
+
+</pre>
+
+<p>
+首先由于编译优化的 QEMU 对于 ppc64 高地址存在寻址错误的情况，因此 <b>fsck</b> 在调用
+<b>fsck64</b> 程序时可能造成系统启动卡住，因此在维护模式中我们需要手动修改 fsck64程序：
+</p>
+<pre class="example">
+# cd /sbin/helpers/jfs2    &lt;--go to this location
+# cp -p fsck64 fsck64.orig &lt;--backup
+# &gt; fsck64                 &lt;--delete content of that file
+# vi fsck64                &lt;--vi and insert these 2 lines. File is readonly, so save and quit with :w! and :q
+#!/bin/ksh
+exit 0
+
+# cat fsck64               &lt;--it should contain 2 lines (#!/bin/ksh and exit 0)
+# sync ; sync              &lt;--write cached memory to disk
+</pre>
+
+<p>
+事实上最好还要修改相同路径下的 <b>logredo64</b> ，可以使用 <b>truss</b> 命令发现 fsck 过程
+中卡在哪里并酌情更改相应的文件：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">truss -f -a fsck <span style="color: #228b22; font-weight: bold; font-style: italic;">2</span>&gt;&amp;<span style="color: #228b22; font-weight: bold; font-style: italic;">1</span> | grep -u execv
+</pre>
+</div>
+
+<p>
+关闭不必要的启动服务：
+</p>
+<pre class="example">
+lsitab -a
+rmitab &lt;unnecessary-service&gt;
+stopsrc -t tftpd
+vi /etc/inetd.conf  # disable unnecessary services
+vi /etc/rc.tcpip    # disable unnecessary services
+vi /etc/filesystems # comment out some filesystems that do not exist
+</pre>
+
+<p>
+记得重置 root 用户密码：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">passwd root
+sync; sync
+halt -q
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org4de5e94" class="outline-2">
+<h2 id="org4de5e94"><span class="section-number-2">7</span> Network setup</h2>
+<div class="outline-text-2" id="text-7">
+<p>
+顺利的话，重新执行 <a href="#org16c46e9">boot from cdrom</a> 我们可以进入到系统了，但是此时 AIX 虚拟机还没
+有网卡，我们可以通过宿主机 CentOS 提供的 TAP（Terminal Access Point） 设备和
+DNAT 技术来实现 ssh 隧道。首先我们要创建 TAP 设备，并将宿主机的真实网卡作为 ARP
+proxy（软网关）：
+</p>
+
+<pre class="example">
+# ip tuntap add tap0 mode tap
+# ip link set tap0 up
+# echo 1 &gt; /proc/sys/net/ipv4/conf/tap0/proxy_arp
+# ip route add 10.0.2.16 dev tap0
+# arp -Ds 10.0.2.16 enp0s3 pub
+</pre>
+
+<p>
+接着我们将 TAP 设备作为 AIX 虚拟机的网卡启动：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh"><span style="color: #f9b529;">cd</span> /aix &amp;&amp; <span style="color: #a9dc69;">\</span>
+    qemu-system-ppc64 -cpu POWER8 -machine pseries -m <span style="color: #228b22; font-weight: bold; font-style: italic;">2048</span> -serial mon:stdio <span style="color: #a9dc69;">\</span>
+                      -drive <span style="color: #8aa6bc;">file</span>=rootvg.qcow2,<span style="color: #8aa6bc;">if</span>=none,<span style="color: #8aa6bc;">id</span>=drive-virtio-disk0 <span style="color: #a9dc69;">\</span>
+                      -device virtio-scsi-pci,<span style="color: #8aa6bc;">id</span>=scsi <span style="color: #a9dc69;">\</span>
+                      -device scsi-hd,<span style="color: #8aa6bc;">drive</span>=drive-virtio-disk0 -cdrom /dev/cdrom <span style="color: #a9dc69;">\</span>
+                      -prom-env boot-command=<span style="color: #a9dc69;">'boot cdrom:'</span> <span style="color: #a9dc69;">\</span>
+                      -net nic,<span style="color: #8aa6bc;">macaddr</span>=<span style="color: #228b22; font-weight: bold; font-style: italic;">56:44:45:30:31:32</span> -net tap,<span style="color: #8aa6bc;">script</span>=no,<span style="color: #8aa6bc;">ifname</span>=tap0
+</pre>
+</div>
+
+<p>
+注意 Guest 虚拟机的 MAC 地址是虚构的，不要使用 Host 上 tap0 设备的 MAC 地址。启
+动之后，在 AIX 上配置 IP 地址：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">chdev -l en0 -a <span style="color: #8aa6bc;">netaddr</span>=<span style="color: #228b22; font-weight: bold; font-style: italic;">10.0.2.16</span> -a <span style="color: #8aa6bc;">netmask</span>=<span style="color: #228b22; font-weight: bold; font-style: italic;">255.255.255.0</span> -a <span style="color: #8aa6bc;">state</span>=up
+</pre>
+</div>
+
+<p>
+此时可以从宿主机 CentOS ssh 到虚拟机了，但还不能从真正的外部 Windows 系统 ssh 到
+AIX 虚拟机，我们还需要在 CentOS 上设置以下 DNAT：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">sysctl -w net.ipv4.ip_forward=<span style="color: #228b22; font-weight: bold; font-style: italic;">1</span>
+iptables -F -t nat
+iptables -I INPUT -p tcp --dport <span style="color: #228b22; font-weight: bold; font-style: italic;">8022</span> -j ACCEPT
+iptables -t nat -A PREROUTING -p tcp --dport <span style="color: #228b22; font-weight: bold; font-style: italic;">8022</span> -j DNAT --to-destination <span style="color: #228b22; font-weight: bold; font-style: italic;">10.0.2.16:22</span>
+iptables --line-numbers -n -L INPUT
+iptables -t nat --line-numbers -n -L PREROUTING
+
+</pre>
+</div>
+<p>
+这样我们就将宿主机的 8022 端口重定向到 Guest 的 22 端口，再在 VirtualBox 的网络
+设置中配置将 127.0.1.11:22 端口转发到 CentOS 的 enp0s3 所在的 10.0.2.15:8022 端
+口，最后在 PuTTY 上直接访问 127.0.1.11:22 即可。注意，配置 TAP 设备以及 DNAT 操
+作都将会在宿主机（CentOS）重启后失效，需要通过脚本或持久化配置优化。
+</p>
+</div>
+</div>
+
+<div id="outline-container-org2304165" class="outline-2">
+<h2 id="org2304165"><span class="section-number-2">8</span> Restore the datavg</h2>
+<div class="outline-text-2" id="text-8">
+<p>
+最后，我们需要恢复 datavg 的数据，这一步也有些曲折，原因还是出在 QEMU 上模拟的
+ppc64 指令涉及到线程和高地址位总是有难以解决的问题，以最常见的 /usr/bin/ps 命令
+为例，在 Guest 上运行将出现 segfault，分析生成的 core dump 将是如下错误：
+</p>
+<pre class="example">
+# dbx /usr/bin/ps ./core
+(dbx) where
+.() at 0x3424
+_global_trylock(??) at 0x900000000565cd4
+_rec_mutex_trylock(??) at 0x9000000000317e0
+...
+</pre>
+<p>
+有人说编译 QEMU 时禁用优化选项可能可以解决 64 位寻址问题，因此我在<a href="#org2d0a22c">install qemu</a>建
+议使用 -O0 编译选项，由于精力所限，如果可以 gdb 跟踪 QEMU 源代码，或许可以找到问
+题的真正根源，为了绕过 ps 命令不可正确执行的问题，请使用 32 位ps 程序替代：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh"><span style="color: #f9b529;">alias</span> <span style="color: #8aa6bc;">ps</span>=<span style="color: #a9dc69;">'/usr/sysv/bin/ps'</span>
+</pre>
+</div>
+
+<p>
+回到恢复 datavg 数据，正确但却无法实现的方法如下：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">mkvgdata -X -x /tmp/fs.exclude datavg
+<span style="color: #b2b2b2; font-style: italic;">## </span><span style="color: #b2b2b2; font-style: italic;">customize the /image.data, and /tmp/vgdata/datavg/datavg.data. Change the</span>
+<span style="color: #b2b2b2; font-style: italic;">## </span><span style="color: #b2b2b2; font-style: italic;">PPSIZE and INLINE log.</span>
+<span style="color: #b2b2b2; font-style: italic;">## </span><span style="color: #b2b2b2; font-style: italic;">Excludes files specified in the /etc/exclude.vgname</span>
+savevg -e -f /export/mksysb/datavg.savevg datavg
+</pre>
+</div>
+
+<p>
+在宿主机建立 datavg 磁盘文件，并在启动时挂载：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">qemu-img create -f qcow2 datavg.qcow2 <span style="color: #228b22; font-weight: bold; font-style: italic;">150G</span>
+
+qemu-system-ppc64 -cpu POWER8 -machine pseries -m <span style="color: #228b22; font-weight: bold; font-style: italic;">2048</span> <span style="color: #a9dc69;">\</span>
+                  -serial mon:stdio -device virtio-scsi-pci,<span style="color: #8aa6bc;">id</span>=scsi <span style="color: #a9dc69;">\</span>
+                  -drive <span style="color: #8aa6bc;">file</span>=rootvg.qcow2,<span style="color: #8aa6bc;">if</span>=none,<span style="color: #8aa6bc;">id</span>=drive-virtio-disk0 <span style="color: #a9dc69;">\</span>
+                  -device scsi-hd,<span style="color: #8aa6bc;">drive</span>=drive-virtio-disk0 <span style="color: #a9dc69;">\</span>
+                  -drive <span style="color: #8aa6bc;">file</span>=datavg.qcow2,<span style="color: #8aa6bc;">if</span>=none,<span style="color: #8aa6bc;">id</span>=drive-virtio-disk1 <span style="color: #a9dc69;">\</span>
+                  -device scsi-hd,<span style="color: #8aa6bc;">drive</span>=drive-virtio-disk1 <span style="color: #a9dc69;">\</span>
+                  -cdrom /dev/cdrom -prom-env boot-command=<span style="color: #a9dc69;">'boot cdrom:'</span>
+
+
+</pre>
+</div>
+<p>
+注意 drive-id 和 device 一定要配对。如果要从 console detach 出来，请按 "~~."。
+</p>
+
+<p>
+启动之后，将宿主机 datavg.savevg 所在目录共享给 Guest 作为 NFS：
+</p>
+<pre class="example">
+## Run in CentOS
+# setfacl -m u:65534:rwx /backups
+# cat /etc/exports
+/backups 10.0.2.0/24(rw,all_squash,sync,anonuid=65534,anongid=65534) *(ro)
+# exportfs -arv
+
+## Run in Guest
+nfso -p -o nfs_use_reserved_ports=1 
+mount 10.0.2.15:/backups /mnt
+</pre>
+
+<p>
+然后在 Guest 上执行 restore：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">restvg -f /mnt/datavg.savevg -P <span style="color: #228b22; font-weight: bold; font-style: italic;">128</span> hdisk1
+</pre>
+</div>
+
+<p>
+但是由于前述的原因，特别是 fsck 过程中的种种问题，这样是行不通的，需要手动创建
+datavg，并先建立好文件系统之后（在Qemu 中推荐 JFS 文件系统，并且不要指定 INLINE
+模式），再恢复相应文件：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh"><span style="color: #b2b2b2; font-style: italic;"># </span><span style="color: #b2b2b2; font-style: italic;">Create datavg</span>
+mkvg -s <span style="color: #228b22; font-weight: bold; font-style: italic;">128</span> -y datavg hdisk1
+chvg -a<span style="color: #a9dc69;">'n'</span> datavg
+
+<span style="color: #b2b2b2; font-style: italic;"># </span><span style="color: #b2b2b2; font-style: italic;">Create FileSystems</span>
+/usr/sbin/mklv -y<span style="color: #a9dc69;">'&lt;lv-name&gt;'</span> -t<span style="color: #a9dc69;">'jfs'</span> datavg <span style="color: #228b22; font-weight: bold; font-style: italic;">8</span>
+mkdir -p <span style="color: #a9dc69;">'&lt;mount-point&gt;'</span>
+/usr/sbin/crfs -v jfs -d<span style="color: #a9dc69;">'&lt;lv-name&gt;'</span> -m<span style="color: #a9dc69;">'&lt;mount-point&gt;'</span> -A<span style="color: #a9dc69;">'no'</span> -p<span style="color: #a9dc69;">'rw'</span>
+
+<span style="color: #b2b2b2; font-style: italic;"># </span><span style="color: #b2b2b2; font-style: italic;">Restore the files from vg-backup</span>
+<span style="color: #f9b529;">cd</span> / &amp;&amp; listvgbackup -f<span style="color: #a9dc69;">'/mnt/datavg.savevg'</span> -r -s
+</pre>
+</div>
+
+<p>
+注意由于多层虚拟化的原因，I/O 的过程非常慢，当所有文件都恢复好之后，我们就要准备
+启动 web 应用了。
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgab6b382" class="outline-2">
+<h2 id="orgab6b382"><span class="section-number-2">9</span> Start Apache</h2>
+<div class="outline-text-2" id="text-9">
+<p>
+在启动 IBM HTTP Server 时我们再次遇到了高地址寻址错误，所以解决的方法是重新用 32
+位编译 Apache 源程序，或者直接下载 32 位 RPM 包，当然你会发现似乎连 rpm(1) 命令
+都可能卡住时，只能通过 verbose 选项检查其到底卡在何处，是否影响安装，如果出现rpm
+数据库不一直的情况，请执行 <b>rpm &#x2013;rebuilddb</b> 。最终我们还要修改 <b>httpd.conf</b>
+（默认路径在 /opt/freeware/etc/httpd/conf/httpd.conf） 以及
+一些 .html 文件以适配 Qemu 环境，当然运行 Vim 又会被卡在，这里推荐在 Guest 中安
+装 Bellard 大神（QEMU的作者）的作品 <a href="https://bellard.org/qemacs/">QEmacs</a>，编译和执行都飞快，Emacs 的基本功能和
+字符集都支持得很好，而且 html-mode 非常实用（同样编译源代码时请不要开启编译优化，
+大神的代码编译器不懂得优化&#x2026;）。当全部就绪时，我们终于可以启动 Apache 了：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">/opt/freeware/sbin/apache start
+</pre>
+</div>
+<p>
+当然不要忘记设置端口转发：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">iptables -I INPUT -p tcp --dport <span style="color: #228b22; font-weight: bold; font-style: italic;">8080</span> -j ACCEPT
+iptables -t nat -A PREROUTING -p tcp --dport <span style="color: #228b22; font-weight: bold; font-style: italic;">8080</span> -j DNAT --to-destination <span style="color: #228b22; font-weight: bold; font-style: italic;">10.0.2.16:80</span>
+</pre>
+</div>
+<p>
+在 VirtualBox 上设置端口转发（127.0.1.11:80 \(\rightarrow\) 10.0.2.15:8080），
+这样我们终于可以直接访问网页了。
+</p>
+</div>
+</div>
+
+<div id="outline-container-org807f2c9" class="outline-2">
+<h2 id="org807f2c9"><span class="section-number-2">10</span> Miscellaneous</h2>
+<div class="outline-text-2" id="text-10">
+<p>
+当一切准备就绪后，我们可以无需通过 cdrom 启动，并后台运行 AIX 虚拟机进程，再通过
+网络连接：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">qemu-system-ppc64 -cpu POWER8 -machine pseries -m <span style="color: #228b22; font-weight: bold; font-style: italic;">2048</span> <span style="color: #a9dc69;">\</span>
+                  -device virtio-scsi-pci,<span style="color: #8aa6bc;">id</span>=scsi <span style="color: #a9dc69;">\</span>
+                  -drive <span style="color: #8aa6bc;">file</span>=rootvg.qcow2,<span style="color: #8aa6bc;">if</span>=none,<span style="color: #8aa6bc;">id</span>=drive-virtio-disk0 <span style="color: #a9dc69;">\</span>
+                  -device scsi-hd,<span style="color: #8aa6bc;">drive</span>=drive-virtio-disk0 <span style="color: #a9dc69;">\</span>
+                  -drive <span style="color: #8aa6bc;">file</span>=datavg.qcow2,<span style="color: #8aa6bc;">if</span>=none,<span style="color: #8aa6bc;">id</span>=drive-virtio-disk1 <span style="color: #a9dc69;">\</span>
+                  -device scsi-hd,<span style="color: #8aa6bc;">drive</span>=drive-virtio-disk1 <span style="color: #a9dc69;">\</span>
+                  -prom-env boot-command=<span style="color: #a9dc69;">'boot disk:'</span> <span style="color: #a9dc69;">\</span>
+                  -net nic,<span style="color: #8aa6bc;">macaddr</span>=<span style="color: #228b22; font-weight: bold; font-style: italic;">56:44:45:30:31:32</span> -net tap,<span style="color: #8aa6bc;">script</span>=no,<span style="color: #8aa6bc;">ifname</span>=tap0 <span style="color: #a9dc69;">\</span>
+                  -daemonize
+
+</pre>
+</div>
+
+<p>
+由于 AIX 虚拟机的
+shutdown 脚本再调用其他命令时也存在高地址失效问题，因此重新启动 Guest 虚拟机，对
+于 datavg 的文件系统，可能发生无法 mount 的情况，这种情况下，请指定从 cdrom 启动，
+并进入维护模式，然后执行以下命令修复：
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">redefinevg -d hdisk1 datavg
+varyonvg datavg
+synclvodm datavg
+chvg -a<span style="color: #a9dc69;">'n'</span> datavg
+</pre>
+</div>
+
+<p>
+从硬盘启动系统后，可以执行以下命令手动 mount 文件系统：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">varyonvg datavg
+lsvg -l datavg | awk <span style="color: #a9dc69;">'/closed/ {if ($NF !~ "N/A") system("mount "$NF)}'</span>
+</pre>
+</div>
+
+<p>
+因此在关闭系统前，也建议手动 umount 文件系统：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh">lsvg -l datavg | awk <span style="color: #a9dc69;">'/open/ {if ($NF !~ "N/A") system("umount "$NF)}'</span>
+varyoffvg datavg
+</pre>
+</div>
+
+<p>
+另外，通过 cpio 可以针对目录的备份：
+</p>
+<div class="org-src-container">
+<pre class="src src-sh"><span style="color: #b2b2b2; font-style: italic;"># </span><span style="color: #b2b2b2; font-style: italic;">backup</span>
+<span style="color: #f9b529;">cd</span> /path/of/folder &amp;&amp; <span style="color: #a9dc69;">\</span>
+    find . -depth <span style="color: #a9dc69;">\(</span> -type f -o -type l <span style="color: #a9dc69;">\)</span> -mtime -7 -cpio /export/mksysb/folder.cpio
+
+<span style="color: #b2b2b2; font-style: italic;"># </span><span style="color: #b2b2b2; font-style: italic;">restore</span>
+cpio -ivt &lt;/mnt/folder.cpio  <span style="color: #b2b2b2; font-style: italic;"># </span><span style="color: #b2b2b2; font-style: italic;">preview</span>
+cpio -ivdm &lt;/mnt/folder.cpio
+</pre>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: GongCun</p>
+<p class="date">Created: 2020-07-13 周一 07:50</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
