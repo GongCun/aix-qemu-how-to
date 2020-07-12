@@ -4,7 +4,7 @@
 AIX 操作系统是 IBM 开发的闭源 UNIX 操作系统，基于 [[https://en.wikipedia.org/wiki/UNIX_System_V][UNIX System V]] 和 [[https://en.wikipedia.org/wiki/History_of_the_Berkeley_Software_Distribution#4.3BSD][4.3BSD]] 兼容性
 扩展，随着 [[https://en.wikipedia.org/wiki/Solaris_(operating_system)][Solaris]] 的凋零，AIX 可能是目前硕果仅存的商业 UNIX 操作系统（不算maxOS
 X的话）。AIX 是曾经的 UNIX 王者，它是第一个具备日志文件系统的 OS，并且移植了来自
-于 mainframe 可靠性工程设计，在虚拟化上也有独到之处。虽然开放的 Linux 系统取代封
+于大机（mainframe）的可靠性工程设计，在虚拟化上也有独到之处。虽然开放的 Linux 系统取代封
 闭的商业 Unix 系统只是时间问题，但是不可否则，AIX、Solaris 等商业 Unix 系统，曾
 经拥有最优秀的技术和工程实践，而 Linux 也是吸收了这些养分才慢慢壮大起来。
 
@@ -18,13 +18,12 @@ AIX 系统，也阻碍了其市场培育和发展。很难说这种闭源的决�
 年就开放了原始码，但并没有挽救其凋零的命运。
 
 最近在玩阿里云的过程中，逐渐接触到基于内核的虚拟机 KVM、XEN/VirtIO 半虚拟化等技
-术（中间还和阿里的工程师有很多次有意思的交流），发现随着 [[https://zh.wikipedia.org/wiki/QEMU][QEMU]] 的不断发展，不仅支
-持仿真 PowerPC，并且有人已经成功地在 QEMU 中运行了最新的 AIX 7.2 操作系统，这太
-酷了，我忍不住也尝试一次。
+术（中间还和阿里的工程师有很多次有意思的交流），发现随着 [[https://zh.wikipedia.org/wiki/QEMU][QEMU]] 的不断发展和 AIX 对
+虚拟化的逐渐支持，已经可以在 QEMU 中运行 AIX 7.2 操作系统，因此我决定也做一次尝试。
 
-这篇文章主要参考[[http://aix4admins.blogspot.com/2020/04/qemu-aix-on-x86-qemu-quick-emulator-is.html][这里]]，但是增加了一些更加具体的内容，包括如何将一个真实运行的 AIX
-系统迁移到 x86 上，而不是单纯安装一个新系统，虽然现在我可以在这里风轻云淡地娓娓
-道来，但是其中的难度和对耐心的考验是不可想象的。
+将 AIX 移植到 x86 上运行的过程主要参考[[http://aix4admins.blogspot.com/2020/04/qemu-aix-on-x86-qemu-quick-emulator-is.html][这里]]，但是增加了一些更加具体的内容，包括如
+何将一个真实运行的 AIX系统迁移到 x86 上，而不是单纯安装一个新系统，虽然现在我可
+以在这里风轻云淡地娓娓道来，但是其中的难度和对耐心的考验是不可想象的。
 
 * What is QEMU
 
@@ -91,3 +90,341 @@ meta-data，因此需要分几步来备份：
    #+END_EXAMPLE
 
 * Install QEMU
+虽然我的 Windows 上也安装了 Qemu，但是由于大部分模拟 AIX 成功的先例都是在
+Linux/MacOS 上模拟成功，我选择先在 VirtuaBox 上安装 CentOS 8 虚拟机，然后再在
+CentOS 上安装 Qemu 虚拟机（性能特别是 I/O 上确实有些影响）。安装 QEMU 之前，需要
+先安装 gcc、make、python 之类的常用开发套件：
+
+#+BEGIN_SRC sh
+  sudo dnf install python3 -y
+  sudo alternatives --set python /usr/bin/python3
+  sudo dnf install glib* -y
+  sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+  sudo dnf install perl gcc dkms kernel-devel kernel-headers make bzip2 -y
+#+END_SRC
+
+接着从 github 上下载最新的 QEMU，并编译安装，注意，最好修改 configure 参数，不要
+做任何优化编译，否则之后在 Guest 运行 ppc64 指令时，会出现高地址寻址错误，引发
+sigfault：
+<<make-qemu>>
+#+BEGIN_EXAMPLE
+  # git clone git://git.qemu.org/qemu.git
+  # cd qemu
+  # mkdir build; cd build
+  # ../configure CFLAGS='-O0'
+  # make
+  # make install
+  # qemu-system-ppc64 --version
+  QEMU emulator version 5.0.50 (v5.0.0-1681-g63d211993b)
+  Copyright (c) 2003-2020 Fabrice Bellard and the QEMU Project developers
+
+#+END_EXAMPLE
+
+* Create a disk file
+创建 AIX rootvg 硬盘（disk file），大小可以按照 rootvg 的实际大小创建，可以在
+AIX 上运行如下命令得到 size：
+#+BEGIN_SRC sh
+  df -tk `lsvgfs rootvg` | awk '
+  {total+=$3} END {printf "Estimated size: %d bytes, %.2f GB\n", total*1024, total/1024/1024}'
+#+END_SRC
+
+接着我们在 CentOS 上创建 disk 文件：
+#+BEGIN_SRC sh
+  mkdir -p /aix && \
+      cd /aix && \
+      qemu-img create -f qcow2 rootvg.qcow2 120G
+#+END_SRC
+
+由于是 thin-provision，因此这步的操作是立即返回的，初始文件大小只有 8MB 左右。但
+是有一点要注意，就是确保 CentOS 上有足够的空间扩展，必要时先在 VirtualBox 上扩展
+虚拟磁盘，然后在 CentOS 上扩充文件系统：
+#+BEGIN_EXAMPLE
+  fdisk -l
+  fdisk /dev/sda
+    n -> p -> 3 -> default value -> w
+  reboot
+  vgs
+  vgextend cl_centos8 /dev/sda4
+  lvextend /dev/mapper/cl_centos8-root /dev/sda4
+  xfs_growfs /
+#+END_EXAMPLE
+
+* Create an AIX VM
+#+BEGIN_EXAMPLE
+  # cd /aix
+  # qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 \
+    -serial mon:stdio -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+    -device virtio-scsi-pci,id=scsi -device scsi-hd,drive=drive-virtio-disk0 \
+    -cdrom /dev/cdrom -prom-env boot-command='boot cdrom:'
+
+  # Parameters used:
+  # -cpu: processor type, here POWER8
+  # -machine: machine type, here pseries
+  # -m: memory size, here 2GB
+  # -serial: redirects serial output to specified device, <ctrl-c> will send to qenu vm
+  # -drive: the disk file we created before
+  # -device: virtio-scsi-pci (not fully sure, but maybe this will create a virt. eth. adapter device)
+  # -device: scs-hd (probably this will create hdisk device)
+  # -cdrom: for multiple .iso files, specify the /dev/cdrom
+  # -prom-env: sets NVRAM variable for PPC and SPARC servers, here a boot-command is used, which points to cdrom (DVD)
+#+END_EXAMPLE
+
+注意，由于 *mkdvd* 生成的是多个 .iso 文件，因此 *-cdrom* 需要指定 /dev/cdrom 便
+于插拔虚拟光驱。
+
+启动并恢复备份的的过程非常慢，15GB 左右的备份文件分成了4个 iso 档，每个 iso 文件
+恢复的时间约 1.5~2 小时，总共花费约 8 个小时才完成恢复。我前后大约做了 6 次尝试，
+前5次都是在恢复到第3个 iso 文件时报错，最后调整了 PPSIZE 参数才恢复成功。
+
+* Fix issue in Maintenance mode
+当最后一个 iso 文件恢复完成时，在 VirtualBox 中重新选择虚拟盘（第一个 iso 文件），
+然后 boot 进入维护模式（Maintenance mode）：
+<<boot-cdrom>>
+#+BEGIN_EXAMPLE
+  # qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 \
+    -serial mon:stdio -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+    -device virtio-scsi-pci,id=scsi -device scsi-hd,drive=drive-virtio-disk0 \
+    -cdrom /dev/cdrom -prom-env boot-command='boot cdrom:'
+
+  ## choose 3 (Start Maintenance Mode) --> 1 (Access a Root VG) --> 0 Continue
+  ## --> 1 (VG on hdisk0) --> 1 (Access this VG and start a shell).
+
+#+END_EXAMPLE
+
+首先由于编译优化的 QEMU 对于 ppc64 高地址存在寻址错误的情况，因此 *fsck* 在调用
+*fsck64* 程序时可能造成系统启动卡住，因此在维护模式中我们需要手动修改 fsck64程序：
+#+BEGIN_EXAMPLE
+  # cd /sbin/helpers/jfs2    <--go to this location
+  # cp -p fsck64 fsck64.orig <--backup
+  # > fsck64                 <--delete content of that file
+  # vi fsck64                <--vi and insert these 2 lines. File is readonly, so save and quit with :w! and :q
+  #!/bin/ksh
+  exit 0
+
+  # cat fsck64               <--it should contain 2 lines (#!/bin/ksh and exit 0)
+  # sync ; sync              <--write cached memory to disk
+#+END_EXAMPLE
+
+事实上最好还要修改相同路径下的 *logredo64* ，可以使用 *truss* 命令发现 fsck 过程
+中卡在哪里并酌情更改相应的文件：
+#+BEGIN_SRC sh
+  truss -f -a fsck 2>&1 | grep -u execv
+#+END_SRC
+
+关闭不必要的启动服务：
+#+BEGIN_EXAMPLE
+  lsitab -a
+  rmitab <unnecessary-service>
+  stopsrc -t tftpd
+  vi /etc/inetd.conf  # disable unnecessary services
+  vi /etc/rc.tcpip    # disable unnecessary services
+  vi /etc/filesystems # comment out some filesystems that do not exist
+#+END_EXAMPLE
+
+记得重置 root 用户密码：
+#+BEGIN_SRC sh
+  passwd root
+  sync; sync
+  halt -q
+#+END_SRC
+
+* Network setup
+顺利的话，重新执行 [[boot-cdrom][boot from cdrom]] 我们可以进入到系统了，但是此时 AIX 虚拟机还没
+有网卡，我们可以通过宿主机 CentOS 提供的 TAP（Terminal Access Point） 设备和
+DNAT 技术来实现 ssh 隧道。首先我们要创建 TAP 设备，并将宿主机的真实网卡作为 ARP
+proxy（软网关）：
+
+#+BEGIN_EXAMPLE
+  # ip tuntap add tap0 mode tap
+  # ip link set tap0 up
+  # echo 1 > /proc/sys/net/ipv4/conf/tap0/proxy_arp
+  # ip route add 10.0.2.16 dev tap0
+  # arp -Ds 10.0.2.16 enp0s3 pub
+#+END_EXAMPLE
+
+接着我们将 TAP 设备作为 AIX 虚拟机的网卡启动：
+#+BEGIN_SRC sh
+  cd /aix && \
+      qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 -serial mon:stdio \
+                        -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+                        -device virtio-scsi-pci,id=scsi \
+                        -device scsi-hd,drive=drive-virtio-disk0 -cdrom /dev/cdrom \
+                        -prom-env boot-command='boot cdrom:' \
+                        -net nic,macaddr=56:44:45:30:31:32 -net tap,script=no,ifname=tap0
+#+END_SRC
+
+注意 Guest 虚拟机的 MAC 地址是虚构的，不要使用 Host 上 tap0 设备的 MAC 地址。启
+动之后，在 AIX 上配置 IP 地址：
+#+BEGIN_SRC sh
+  chdev -l en0 -a netaddr=10.0.2.16 -a netmask=255.255.255.0 -a state=up
+#+END_SRC
+
+此时可以从宿主机 CentOS ssh 到虚拟机了，但还不能从真正的外部 Windows 系统 ssh 到
+AIX 虚拟机，我们还需要在 CentOS 上设置以下 DNAT：
+#+BEGIN_SRC sh
+  sysctl -w net.ipv4.ip_forward=1
+  iptables -F -t nat
+  iptables -I INPUT -p tcp --dport 8022 -j ACCEPT
+  iptables -t nat -A PREROUTING -p tcp --dport 8022 -j DNAT --to-destination 10.0.2.16:22
+  iptables --line-numbers -n -L INPUT
+  iptables -t nat --line-numbers -n -L PREROUTING
+
+#+END_SRC
+这样我们就将宿主机的 8022 端口重定向到 Guest 的 22 端口，再在 VirtualBox 的网络
+设置中配置将 127.0.1.11:22 端口转发到 CentOS 的 enp0s3 所在的 10.0.2.15:8022 端
+口，最后在 PuTTY 上直接访问 127.0.1.11:22 即可。注意，配置 TAP 设备以及 DNAT 操
+作都将会在宿主机（CentOS）重启后失效，需要通过脚本或持久化配置优化。
+
+* Restore the datavg
+最后，我们需要恢复 datavg 的数据，这一步也有些曲折，原因还是出在 QEMU 上模拟的
+ppc64 指令涉及到线程和高地址位总是有难以解决的问题，以最常见的 /usr/bin/ps 命令
+为例，在 Guest 上运行将出现 segfault，分析生成的 core dump 将是如下错误：
+#+BEGIN_EXAMPLE
+  # dbx /usr/bin/ps ./core
+  (dbx) where
+  .() at 0x3424
+  _global_trylock(??) at 0x900000000565cd4
+  _rec_mutex_trylock(??) at 0x9000000000317e0
+  ...
+#+END_EXAMPLE
+有人说编译 QEMU 时禁用优化选项可能可以解决 64 位寻址问题，因此我在[[make-qemu][install qemu]]建
+议使用 -O0 编译选项，由于精力所限，如果可以 gdb 跟踪 QEMU 源代码，或许可以找到问
+题的真正根源，为了绕过 ps 命令不可正确执行的问题，请使用 32 位ps 程序替代：
+#+BEGIN_SRC sh
+  alias ps='/usr/sysv/bin/ps'
+#+END_SRC
+
+回到恢复 datavg 数据，正确但却无法实现的方法如下：
+#+BEGIN_SRC sh
+  mkvgdata -X -x /tmp/fs.exclude datavg
+  ## customize the /image.data, and /tmp/vgdata/datavg/datavg.data. Change the
+  ## PPSIZE and INLINE log.
+  ## Excludes files specified in the /etc/exclude.vgname
+  savevg -e -f /export/mksysb/datavg.savevg datavg
+#+END_SRC
+
+在宿主机建立 datavg 磁盘文件，并在启动时挂载：
+#+BEGIN_SRC sh
+  qemu-img create -f qcow2 datavg.qcow2 150G
+
+  qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 \
+                    -serial mon:stdio -device virtio-scsi-pci,id=scsi \
+                    -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+                    -device scsi-hd,drive=drive-virtio-disk0 \
+                    -drive file=datavg.qcow2,if=none,id=drive-virtio-disk1 \
+                    -device scsi-hd,drive=drive-virtio-disk1 \
+                    -cdrom /dev/cdrom -prom-env boot-command='boot cdrom:'
+
+
+#+END_SRC
+注意 drive-id 和 device 一定要配对。如果要从 console detach 出来，请按 "~~."。
+
+启动之后，将宿主机 datavg.savevg 所在目录共享给 Guest 作为 NFS：
+#+BEGIN_EXAMPLE
+  ## Run in CentOS
+  # setfacl -m u:65534:rwx /backups
+  # cat /etc/exports
+  /backups 10.0.2.0/24(rw,all_squash,sync,anonuid=65534,anongid=65534) *(ro)
+  # exportfs -arv
+
+  ## Run in Guest
+  nfso -p -o nfs_use_reserved_ports=1 
+  mount 10.0.2.15:/backups /mnt
+#+END_EXAMPLE
+
+然后在 Guest 上执行 restore：
+#+BEGIN_SRC sh
+  restvg -f /mnt/datavg.savevg -P 128 hdisk1
+#+END_SRC
+
+但是由于前述的原因，特别是 fsck 过程中的种种问题，这样是行不通的，需要手动创建
+datavg，并先建立好文件系统之后（在Qemu 中推荐 JFS 文件系统，并且不要指定 INLINE
+模式），再恢复相应文件：
+#+BEGIN_SRC sh
+  # Create datavg
+  mkvg -s 128 -y datavg hdisk1
+  chvg -a'n' datavg
+
+  # Create FileSystems
+  /usr/sbin/mklv -y'<lv-name>' -t'jfs' datavg 8
+  mkdir -p '<mount-point>'
+  /usr/sbin/crfs -v jfs -d'<lv-name>' -m'<mount-point>' -A'no' -p'rw'
+
+  # Restore the files from vg-backup
+  cd / && listvgbackup -f'/mnt/datavg.savevg' -r -s
+#+END_SRC
+
+注意由于多层虚拟化的原因，I/O 的过程非常慢，当所有文件都恢复好之后，我们就要准备
+启动 web 应用了。
+
+* Start Apache
+在启动 IBM HTTP Server 时我们再次遇到了高地址寻址错误，所以解决的方法是重新用 32
+位编译 Apache 源程序，或者直接下载 32 位 RPM 包，当然你会发现似乎连 rpm(1) 命令
+都可能卡住时，只能通过 verbose 选项检查其到底卡在何处，是否影响安装，如果出现rpm
+数据库不一直的情况，请执行 *rpm --rebuilddb* 。最终我们还要修改 *httpd.conf*
+（默认路径在 /opt/freeware/etc/httpd/conf/httpd.conf） 以及
+一些 .html 文件以适配 Qemu 环境，当然运行 Vim 又会被卡在，这里推荐在 Guest 中安
+装 Bellard 大神（QEMU的作者）的作品 [[https://bellard.org/qemacs/][QEmacs]]，编译和执行都飞快，Emacs 的基本功能和
+字符集都支持得很好，而且 html-mode 非常实用（同样编译源代码时请不要开启编译优化，
+大神的代码编译器不懂得优化...）。当全部就绪时，我们终于可以启动 Apache 了：
+#+BEGIN_SRC sh
+  /opt/freeware/sbin/apache start
+#+END_SRC
+当然不要忘记设置端口转发：
+#+BEGIN_SRC sh
+  iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+  iptables -t nat -A PREROUTING -p tcp --dport 8080 -j DNAT --to-destination 10.0.2.16:80
+#+END_SRC
+在 VirtualBox 上设置端口转发（127.0.1.11:80 $\rightarrow$ 10.0.2.15:8080），
+这样我们终于可以直接访问网页了。
+
+* Miscellaneous
+当一切准备就绪后，我们可以无需通过 cdrom 启动，并后台运行 AIX 虚拟机进程，再通过
+网络连接：
+#+BEGIN_SRC sh
+  qemu-system-ppc64 -cpu POWER8 -machine pseries -m 2048 \
+                    -device virtio-scsi-pci,id=scsi \
+                    -drive file=rootvg.qcow2,if=none,id=drive-virtio-disk0 \
+                    -device scsi-hd,drive=drive-virtio-disk0 \
+                    -drive file=datavg.qcow2,if=none,id=drive-virtio-disk1 \
+                    -device scsi-hd,drive=drive-virtio-disk1 \
+                    -prom-env boot-command='boot disk:' \
+                    -net nic,macaddr=56:44:45:30:31:32 -net tap,script=no,ifname=tap0 \
+                    -daemonize
+
+#+END_SRC
+
+由于 AIX 虚拟机的
+shutdown 脚本再调用其他命令时也存在高地址失效问题，因此重新启动 Guest 虚拟机，对
+于 datavg 的文件系统，可能发生无法 mount 的情况，这种情况下，请指定从 cdrom 启动，
+并进入维护模式，然后执行以下命令修复：
+
+#+BEGIN_SRC sh
+  redefinevg -d hdisk1 datavg
+  varyonvg datavg
+  synclvodm datavg
+  chvg -a'n' datavg
+#+END_SRC
+
+从硬盘启动系统后，可以执行以下命令手动 mount 文件系统：
+#+BEGIN_SRC sh
+  varyonvg datavg
+  lsvg -l datavg | awk '/closed/ {if ($NF !~ "N/A") system("mount "$NF)}'
+#+END_SRC
+
+因此在关闭系统前，也建议手动 umount 文件系统：
+#+BEGIN_SRC sh
+  lsvg -l datavg | awk '/open/ {if ($NF !~ "N/A") system("umount "$NF)}'
+  varyoffvg datavg
+#+END_SRC
+
+另外，通过 cpio 可以针对目录的备份：
+#+BEGIN_SRC sh
+  # backup
+  cd /path/of/folder && \
+      find . -depth \( -type f -o -type l \) -mtime -7 -cpio /export/mksysb/folder.cpio
+
+  # restore
+  cpio -ivt </mnt/folder.cpio  # preview
+  cpio -ivdm </mnt/folder.cpio
+#+END_SRC
