@@ -2,7 +2,7 @@
 #+AUTHOR: GongCun
 
 AIX 操作系统是 IBM 开发的闭源 UNIX 操作系统，基于 [[https://en.wikipedia.org/wiki/UNIX_System_V][UNIX System V]] 和 [[https://en.wikipedia.org/wiki/History_of_the_Berkeley_Software_Distribution#4.3BSD][4.3BSD]] 兼容性
-扩展，随着 [[https://en.wikipedia.org/wiki/Solaris_(operating_system)][Solaris]] 的凋零，AIX 可能是目前硕果仅存的商业 UNIX 操作系统（不算maxOS
+扩展，随着 [[https://en.wikipedia.org/wiki/Solaris_(operating_system)][Solaris]] 的凋零，AIX 可能是目前硕果仅存的商业 UNIX 操作系统（不算macOS
 X的话）。AIX 是曾经的 UNIX 王者，它是第一个具备日志文件系统的 OS，并且移植了来自
 于大机（mainframe）的可靠性工程设计，在虚拟化上也有独到之处。虽然开放的 Linux 系统取代封
 闭的商业 Unix 系统只是时间问题，但是不可否则，AIX、Solaris 等商业 Unix 系统，曾
